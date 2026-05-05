@@ -1,0 +1,7 @@
+Unidade
+Técnico
+Status
+Data
+Patrimônio
+Defeito
+Observações

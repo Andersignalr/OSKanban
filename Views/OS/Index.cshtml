@@ -1,0 +1,244 @@
+﻿@model List<OSKanban.Models.OrdemServico>
+
+@{
+    var tecnicos = ViewBag.Tecnicos as List<string>;
+}
+
+<style>
+    .board {
+        display: flex;
+        gap: 20px;
+        padding: 20px;
+    }
+
+    .coluna {
+        background: #eee;
+        padding: 10px;
+        border-radius: 10px;
+        width: 250px;
+    }
+
+    .cards {
+        min-height: 200px;
+    }
+
+    .card {
+        background: #fff;
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    }
+</style>
+
+<div class="board">
+
+    <button onclick="abrirModal()">+ Nova OS</button>
+
+    @foreach (var tecnico in tecnicos)
+    {
+        <div class="coluna" data-tecnico="@tecnico">
+            <h3>@tecnico</h3>
+
+            <div class="cards">
+                @foreach (var os in Model.Where(x => x.Tecnico == tecnico))
+                {
+                    <div class="card" data-id="@os.Id">
+                        <div style="display:flex; justify-content:space-between;">
+
+                        <strong>@os.Unidade</strong>
+                        <button onclick="event.stopPropagation(); excluirOS(@os.Id)" style="background:red; color:white; border:none; cursor:pointer;">X</button>
+                        </div>
+                        @os.Defeito<br />
+                        <small>@os.Patrimonio</small>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<div id="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+    
+    <div style="background:#fff; padding:20px; width:400px; margin:100px auto; border-radius:10px;">
+        
+        <h3>Nova Ordem de Serviço</h3>
+
+        <input type="hidden" id="osId">
+        <input id="unidade" placeholder="Unidade"><br><br>
+        <select id="tecnico">
+            @foreach (var t in ViewBag.Tecnicos)
+            {
+                <option value="@t">@t</option>
+            }
+        </select><br><br>
+        <input id="patrimonio" placeholder="Patrimônio"><br><br>
+        <input id="defeito" placeholder="Defeito"><br><br>
+        <textarea id="observacoes" placeholder="Observações"></textarea><br><br>
+
+        <button onclick="criarOS()">Salvar</button>
+        <button onclick="fecharModal()">Cancelar</button>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+<script>
+    document.querySelectorAll('.cards').forEach(coluna => {
+    new Sortable(coluna, {
+    group: 'kanban',
+    animation: 150,
+    onEnd: function (evt) {
+
+    let id = evt.item.dataset.id;
+    let tecnico = evt.to.closest('.coluna').dataset.tecnico;
+
+    fetch('/OS/Mover', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+    id: id,
+    novoTecnico: tecnico
+    })
+    });
+    }
+    });
+    });
+</script>
+
+<script>
+    function abrirModal() {
+    document.getElementById('modal').style.display = 'block';
+    }
+
+    function fecharModal() {
+    document.getElementById('modal').style.display = 'none';
+    }
+
+    function atualizarCard(os) {
+
+    const card = document.querySelector(`.card[data-id="${os.id}"]`);
+
+    if (!card) return;
+
+    card.innerHTML = `
+    <div style="display:flex; justify-content:space-between;">
+    <strong>${os.unidade}</strong>
+    <button onclick="event.stopPropagation(); excluirOS(${os.id})" style="background:red; color:white; border:none; cursor:pointer;">X</button>
+    </div>
+    ${os.defeito}<br>
+    <small>${os.patrimonio}</small>
+    `;
+
+    // mover de coluna se trocar técnico
+    const colunaAtual = card.closest('.coluna');
+    if (colunaAtual.dataset.tecnico !== os.tecnico) {
+    card.remove();
+    adicionarCardNaTela(os);
+    }
+    }
+
+    function criarOS() {
+
+    const id = document.getElementById('osId').value;
+
+    const data = {
+    id: id ? parseInt(id) : 0,
+    unidade: document.getElementById('unidade').value,
+    tecnico: document.getElementById('tecnico').value,
+    patrimonio: document.getElementById('patrimonio').value,
+    defeito: document.getElementById('defeito').value,
+    observacoes: document.getElementById('observacoes').value
+    };
+
+    const url = id ? '/OS/Editar' : '/OS/Criar';
+
+    fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(os => {
+
+    if (id) {
+    atualizarCard(os);
+    } else {
+    adicionarCardNaTela(os);
+    }
+
+    fecharModal();
+    limparFormulario();
+    });
+    }
+
+    function adicionarCardNaTela(os) {
+
+    const coluna = document.querySelector(`.coluna[data-tecnico="${os.tecnico}"] .cards`);
+
+    if (!coluna) return;
+
+    const card = document.createElement('div');
+    card.classList.add('card');
+    card.dataset.id = os.id;
+
+    card.innerHTML = `
+    <div style="display:flex; justify-content:space-between;">
+    <strong>${os.unidade}</strong>
+    <button onclick="event.stopPropagation(); excluirOS(${os.id})" style="background:red; color:white; border:none; cursor:pointer;">X</button>
+    </div>
+    ${os.defeito}<br>
+    <small>${os.patrimonio}</small>
+    `;
+
+    coluna.appendChild(card);
+    }
+
+    function limparFormulario() {
+    document.getElementById('osId').value = '';
+    document.getElementById('unidade').value = '';
+    document.getElementById('patrimonio').value = '';
+    document.getElementById('defeito').value = '';
+    document.getElementById('observacoes').value = '';
+    }
+
+    document.addEventListener('click', function(e) {
+    const card = e.target.closest('.card');
+    if (!card) return;
+
+    const id = card.dataset.id;
+
+    fetch(`/OS/Obter?id=${id}`)
+    .then(res => res.json())
+    .then(os => abrirModalEdicao(os));
+    });
+
+    function abrirModalEdicao(os) {
+    document.getElementById('osId').value = os.id;
+    document.getElementById('unidade').value = os.unidade;
+    document.getElementById('tecnico').value = os.tecnico;
+    document.getElementById('patrimonio').value = os.patrimonio;
+    document.getElementById('defeito').value = os.defeito;
+    document.getElementById('observacoes').value = os.observacoes;
+
+    document.getElementById('modal').style.display = 'block';
+    }
+
+    function excluirOS(id) {
+
+    if (!confirm("Deseja realmente excluir esta OS?"))
+    return;
+
+    fetch(`/OS/Excluir?id=${id}`, {
+    method: 'POST'
+    })
+    .then(() => {
+    removerCardDaTela(id);
+    });
+    }
+
+    function removerCardDaTela(id) {
+    const card = document.querySelector(`.card[data-id="${id}"]`);
+    if (card) card.remove();
+    }
+</script>
