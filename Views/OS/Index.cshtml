@@ -28,6 +28,18 @@
         border-radius: 10px;
         margin-bottom: 10px;
     }
+
+    .card.em-andamento {
+        border-left: 5px solid orange;
+    }
+
+    .card.finalizado {
+        border-left: 5px solid green;
+    }
+
+    .card.pendente {
+        border-left: 5px solid red;
+    }
 </style>
 
 <div class="board">
@@ -42,11 +54,15 @@
             <div class="cards">
                 @foreach (var os in Model.Where(x => x.Tecnico == tecnico))
                 {
-                    <div class="card" data-id="@os.Id">
+                    <div class="card @(
+                                        os.Status.ToLower().Contains("andamento") ? "em-andamento" :
+                                        os.Status.ToLower().Contains("finalizado") ? "finalizado" :
+                                        os.Status.ToLower().Contains("pendente") ? "pendente" : ""
+                                       )" data-id="@os.Id">
                         <div style="display:flex; justify-content:space-between;">
 
-                        <strong>@os.Unidade</strong>
-                        <button onclick="event.stopPropagation(); excluirOS(@os.Id)" style="background:red; color:white; border:none; cursor:pointer;">X</button>
+                            <strong>@os.Unidade</strong>
+                            <button onclick="event.stopPropagation(); excluirOS(@os.Id)" style="background:red; color:white; border:none; cursor:pointer;">X</button>
                         </div>
                         @os.Defeito<br />
                         <small>@os.Patrimonio</small>
@@ -73,6 +89,11 @@
         </select><br><br>
         <input id="patrimonio" placeholder="Patrimônio"><br><br>
         <input id="defeito" placeholder="Defeito"><br><br>
+        <select id="status">
+            <option value="Em andamento">Em andamento</option>
+            <option value="Pendente">Pendente</option>
+            <option value="Finalizado">Finalizado</option>
+        </select><br><br>
         <textarea id="observacoes" placeholder="Observações"></textarea><br><br>
 
         <button onclick="criarOS()">Salvar</button>
@@ -130,6 +151,8 @@
     <small>${os.patrimonio}</small>
     `;
 
+    card.className = 'card ' + getClasseStatus(os.status);
+
     // mover de coluna se trocar técnico
     const colunaAtual = card.closest('.coluna');
     if (colunaAtual.dataset.tecnico !== os.tecnico) {
@@ -148,6 +171,7 @@
     tecnico: document.getElementById('tecnico').value,
     patrimonio: document.getElementById('patrimonio').value,
     defeito: document.getElementById('defeito').value,
+    status: document.getElementById('status').value,
     observacoes: document.getElementById('observacoes').value
     };
 
@@ -174,12 +198,15 @@
 
     function adicionarCardNaTela(os) {
 
+    const classeStatus = getClasseStatus(os.status);
+
     const coluna = document.querySelector(`.coluna[data-tecnico="${os.tecnico}"] .cards`);
 
     if (!coluna) return;
 
     const card = document.createElement('div');
     card.classList.add('card');
+    card.classList.add('card', classeStatus);
     card.dataset.id = os.id;
 
     card.innerHTML = `
@@ -240,5 +267,17 @@
     function removerCardDaTela(id) {
     const card = document.querySelector(`.card[data-id="${id}"]`);
     if (card) card.remove();
+    }
+
+    function getClasseStatus(status) {
+    if (!status) return '';
+
+    status = status.toLowerCase();
+
+    if (status.includes('andamento')) return 'em-andamento';
+    if (status.includes('finalizado')) return 'finalizado';
+    if (status.includes('pendente')) return 'pendente';
+
+    return '';
     }
 </script>
